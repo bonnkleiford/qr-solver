@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Inventory Policy Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=JetBrains+Mono:wght@400;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0e0f11; --bg2:#141518; --bg3:#1c1e22; --bg4:#242629;
+  --border:#2e3035;
+  --amber:#f0a030; --gold:#f5c842;
+  --crimson:#9b2335;
+  --green:#5cb85c;
+  --cyan:#4db8c8; --red:#e05555;
+  --white:#f0f0f0; --silver:#a0a8b0; --steel:#606878;
+  --r:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--white);font-family:'Lato',sans-serif;font-weight:300;}
+
+.banner{
+  background:linear-gradient(135deg,#0a0b0d,#141518 60%,#1a1206);
+  border-bottom:1px solid var(--border);
+  padding:2.4rem 2rem 1.8rem;text-align:center;position:relative;overflow:hidden;
+}
+.banner::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--amber),transparent);}
+.banner h1{font-family:'Playfair Display',serif;font-size:clamp(1.8rem,5vw,3.2rem);
+  font-weight:900;color:var(--gold);letter-spacing:.1em;}
+.banner h1 span{color:var(--amber);}
+.banner p{margin-top:.4rem;font-family:'JetBrains Mono',monospace;font-size:.73rem;
+  color:var(--steel);letter-spacing:.15em;text-transform:uppercase;}
+
+.wrap{max-width:1060px;margin:0 auto;padding:2rem 1.4rem 4rem;}
+
+.sh{display:flex;align-items:center;gap:.7rem;margin:2rem 0 1.1rem;}
+.sh h2{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;
+  color:var(--gold);letter-spacing:.05em;white-space:nowrap;}
+.sh::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+
+.fcard{display:grid;grid-template-columns:1fr 1fr;gap:1rem 2rem;
+  background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--amber);
+  border-radius:var(--r);padding:1.3rem 1.6rem;margin-bottom:2rem;}
+@media(max-width:600px){.fcard{grid-template-columns:1fr;}}
+.fcard h3{grid-column:1/-1;font-family:'Playfair Display',serif;color:var(--gold);
+  font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;}
+.fcard code{display:block;font-family:'JetBrains Mono',monospace;font-size:.74rem;
+  color:var(--silver);line-height:1.9;}
+.fcard code b{color:var(--amber);}
+.fcard code i{color:var(--steel);font-style:normal;}
+
+.mode-lbl{font-size:.73rem;text-transform:uppercase;letter-spacing:.1em;color:var(--steel);margin-bottom:.42rem;}
+.mode-row{display:flex;gap:.8rem;margin-bottom:1.1rem;flex-wrap:wrap;}
+.mbtn{flex:1;min-width:155px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--r);padding:.78rem .95rem;cursor:pointer;text-align:left;transition:all .18s;}
+.mbtn:hover{border-color:var(--amber);background:var(--bg4);}
+.mbtn.on{border-color:var(--amber);background:rgba(240,160,48,.07);}
+.mbtn strong{display:block;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  color:var(--amber);margin-bottom:.16rem;}
+.mbtn small{font-size:.7rem;color:var(--steel);}
+
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:.85rem;}
+.field{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+  padding:.82rem .95rem;transition:border-color .18s;}
+.field:focus-within{border-color:var(--amber);}
+.field label{display:block;font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--steel);margin-bottom:.28rem;}
+.field label em{font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  color:var(--cyan);font-style:normal;margin-right:.22rem;}
+.field input[type=number],.field input[type=text]{
+  width:100%;background:transparent;border:none;outline:none;
+  font-family:'JetBrains Mono',monospace;font-size:1.02rem;font-weight:600;
+  color:var(--white);border-bottom:1px solid var(--border);padding:.16rem 0;transition:border-color .18s;}
+.field input[type=number]:focus{border-bottom-color:var(--amber);}
+.field .unit{font-size:.67rem;color:var(--steel);margin-top:.26rem;}
+.field.derived{border-color:rgba(240,160,48,.28);background:rgba(240,160,48,.04);}
+.field.derived input{color:var(--amber);}
+
+.dnote{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--steel);
+  margin:.55rem 0 0 .2rem;padding-left:.55rem;border-left:2px solid var(--border);}
+
+.sbtn-wrap{margin-top:1.8rem;text-align:center;}
+.sbtn{background:linear-gradient(135deg,#7b1a2e,#9b2335);
+  border:1px solid var(--crimson);color:var(--white);
+  font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:.85rem 3rem;border-radius:40px;cursor:pointer;
+  box-shadow:0 4px 20px rgba(155,35,53,.3);transition:all .22s;}
+.sbtn:hover{background:linear-gradient(135deg,#9b2335,#c0334a);
+  box-shadow:0 6px 28px rgba(155,35,53,.5);transform:translateY(-1px);}
+.sbtn:active{transform:translateY(0);}
+
+.errbox{margin-top:1rem;padding:.72rem 1.1rem;
+  background:rgba(224,85,85,.1);border:1px solid rgba(224,85,85,.35);
+  border-radius:var(--r);color:var(--red);font-family:'JetBrains Mono',monospace;
+  font-size:.78rem;text-align:center;}
+
+.tscroll{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  overflow-x:auto;margin-bottom:1.4rem;}
+table{width:100%;border-collapse:collapse;
+  font-family:'JetBrains Mono',monospace;font-size:.76rem;}
+thead tr{background:#1a1d10;}
+th{padding:.62rem .85rem;text-align:right;color:var(--gold);font-weight:600;
+  letter-spacing:.04em;white-space:nowrap;border-bottom:1px solid var(--border);}
+th:first-child{text-align:center;}
+tbody tr{border-bottom:1px solid rgba(46,48,53,.45);}
+tbody tr:nth-child(odd){background:rgba(255,255,255,.012);}
+tbody tr:hover{background:var(--bg4);}
+tbody tr.conv td{color:var(--green);font-weight:600;}
+td{padding:.48rem .85rem;text-align:right;color:var(--silver);}
+td:first-child{text-align:center;color:var(--steel);}
+.cbadge{display:inline-flex;align-items:center;gap:.32rem;
+  border-radius:20px;padding:.26rem .7rem;font-family:'JetBrains Mono',monospace;
+  font-size:.72rem;margin:.6rem 1rem .85rem;}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));
+  gap:.9rem;margin-bottom:1.4rem;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;}
+.card h3{font-family:'Playfair Display',serif;font-size:.76rem;font-weight:700;
+  color:var(--amber);text-transform:uppercase;letter-spacing:.09em;
+  margin-bottom:.85rem;padding-bottom:.42rem;border-bottom:1px solid var(--border);}
+.mrow{display:flex;justify-content:space-between;align-items:baseline;
+  padding:.36rem 0;border-bottom:1px solid rgba(46,48,53,.4);}
+.mrow:last-of-type{border-bottom:none;}
+.mlabel{font-size:.76rem;color:var(--silver);}
+.mval{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;}
+.mval.a{color:var(--amber);}
+.mval.g{color:var(--green);}
+.mval.r{color:var(--red);}
+.mval.c{color:var(--cyan);}
+.munit{font-size:.67rem;color:var(--steel);margin-left:.22rem;}
+
+.pb{margin:.48rem 0 .18rem;}
+.pb-hd{display:flex;justify-content:space-between;font-size:.7rem;color:var(--steel);margin-bottom:.2rem;}
+.pb-track{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;}
+.pb-fill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+.pb-fill.a{background:linear-gradient(90deg,var(--crimson),var(--amber));}
+.pb-fill.g{background:linear-gradient(90deg,#256025,var(--green));}
+
+.crow{display:grid;grid-template-columns:1fr auto auto;align-items:center;
+  gap:.45rem .75rem;padding:.48rem 0;border-bottom:1px solid rgba(46,48,53,.4);}
+.crow:last-of-type{border-bottom:none;}
+.cname{font-size:.75rem;color:var(--silver);}
+.cformula{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--steel);display:block;}
+.camt{font-family:'JetBrains Mono',monospace;font-size:.84rem;font-weight:600;
+  color:var(--white);text-align:right;white-space:nowrap;}
+.cpct{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--steel);
+  text-align:right;min-width:3rem;}
+.cbar{grid-column:1/-1;margin-top:-.22rem;}
+.ctotal{display:flex;justify-content:space-between;align-items:center;
+  padding:.62rem 0 0;margin-top:.32rem;border-top:1px solid var(--amber);}
+.ctotal-lbl{font-family:'Playfair Display',serif;font-size:.82rem;color:var(--gold);font-weight:700;}
+.ctotal-amt{font-family:'JetBrains Mono',monospace;font-size:1.05rem;font-weight:700;color:var(--gold);}
+
+.chart-card{background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:1.25rem;margin-bottom:2rem;}
+.chart-card h3{font-family:'Playfair Display',serif;color:var(--gold);
+  font-size:.8rem;text-transform:uppercase;letter-spacing:.09em;margin-bottom:.9rem;}
+canvas{width:100%;display:block;border-radius:4px;}
+
+footer{text-align:center;padding:1.6rem;font-size:.69rem;color:var(--steel);
+  border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);
+  background:var(--bg2);padding:0 1.4rem;}
+.tab{font-family:'Playfair Display',serif;font-size:.9rem;font-weight:700;
+  color:var(--steel);padding:.9rem 1.6rem;cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .18s;
+  letter-spacing:.04em;white-space:nowrap;}
+.tab:hover{color:var(--gold);}
+.tab.active{color:var(--gold);border-bottom-color:var(--amber);}
+.tab-badge{display:inline-block;font-family:'JetBrains Mono',monospace;
+  font-size:.65rem;background:rgba(240,160,48,.15);color:var(--amber);
+  border-radius:10px;padding:.1rem .45rem;margin-left:.4rem;vertical-align:middle;}
+
+/* ── FOI specific ── */
+.foi-steps{display:flex;flex-direction:column;gap:.55rem;margin-bottom:1.4rem;}
+.foi-step{background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--cyan);
+  border-radius:var(--r);padding:.75rem 1rem;
+  font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--silver);line-height:1.7;}
+.foi-step b{color:var(--cyan);}
+.foi-step i{color:var(--steel);font-style:normal;}
+.sl-toggle{display:flex;gap:.6rem;margin-bottom:1rem;}
+.sl-btn{flex:1;background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--r);padding:.7rem .9rem;cursor:pointer;text-align:center;transition:all .18s;}
+.sl-btn:hover{border-color:var(--cyan);}
+.sl-btn.on{border-color:var(--cyan);background:rgba(77,184,200,.07);}
+.sl-btn strong{display:block;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--cyan);}
+.sl-btn small{font-size:.7rem;color:var(--steel);}
+.result-step{background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--r);padding:.9rem 1.1rem;margin-bottom:.7rem;
+  font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--silver);line-height:1.8;}
+.result-step b{color:var(--amber);}
+.result-step .big{font-size:1.1rem;font-weight:600;color:var(--white);}
+.result-step .lbl{color:var(--steel);font-size:.7rem;}
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>Inventory Policy <span>Solver</span></h1>
+  <p>Reorder Point (Q,R) &nbsp;·&nbsp; Service Level Approach &nbsp;·&nbsp; Normal Demand &nbsp;·&nbsp; Interactive</p>
+</div>
+
+<!-- TAB BAR -->
+<div class="tabs">
+  <div class="tab active" id="tab-qr"  onclick="switchTab('qr')">
+    (Q, R) Policy <span class="tab-badge">Iterative</span>
+  </div>
+  <div class="tab" id="tab-foi" onclick="switchTab('foi')">
+    (Q, R) Service Level <span class="tab-badge">Type 1 &amp; 2</span>
+  </div>
+</div>
+
+<!-- ══ QR PANEL ══ -->
+<div id="panel-qr">
+<div class="wrap">
+
+  <div class="fcard">
+    <h3>Model Reference</h3>
+    <code>
+      <b>TC(Q,R)</b> = c·μ + (K·μ)/Q + h·(Q/2 + R − μ<sub>L</sub>) + (π·μ·n(R))/Q<br>
+      <b>μ<sub>L</sub></b> = μ·L <i>— mean lead-time demand</i><br>
+      <b>σ<sub>L</sub></b> = σ·√L <i>— std-dev of lead-time demand</i><br>
+      <b>n(R)</b> = σ<sub>L</sub>·[φ(z)−z·(1−Φ(z))] <i>— exp. units short/cycle</i>
+    </code>
+    <code>
+      <b>Step 0</b> → Q₀ = EOQ = √(2Kμ/h)<br>
+      <b>Step 1</b> → Φ(z) = 1−hQ/(πμ) ⟹ R = μ<sub>L</sub>+z·σ<sub>L</sub><br>
+      <b>Step 2</b> → compute n(R)<br>
+      <b>Step 3</b> → Q = √(2μ·[K+π·n(R)]/h)<br>
+      <b>Repeat</b> until |ΔQ| &lt; ε
+    </code>
+  </div>
+
+  <div class="sh"><h2>Input Parameters</h2></div>
+
+  <div class="mode-lbl">Holding cost given as:</div>
+  <div class="mode-row">
+    <button class="mbtn" id="hbtn-dollar" onclick="setHMode('dollar')">
+      <strong>$ Dollar amount</strong><small>e.g. $2.00 per unit per year</small>
+    </button>
+    <button class="mbtn on" id="hbtn-rate" onclick="setHMode('rate')">
+      <strong>% Interest rate</strong><small>e.g. 20% of unit cost per year</small>
+    </button>
+  </div>
+
+  <div class="mode-lbl">Demand given as:</div>
+  <div class="mode-row">
+    <button class="mbtn" id="dbtn-annual" onclick="setDMode('annual')">
+      <strong>Annual μ, σ</strong><small>Mean &amp; std-dev per year</small>
+    </button>
+    <button class="mbtn on" id="dbtn-lt" onclick="setDMode('lt')">
+      <strong>Lead-time μ<sub>L</sub>, σ<sub>L</sub></strong><small>Mean &amp; std-dev over the lead-time period</small>
+    </button>
+  </div>
+
+  <div class="igrid">
+    <div class="field">
+      <label><em>K</em> Setup / Order cost</label>
+      <input type="number" id="K" value="50" min="0" step="any"/>
+      <div class="unit">$ per order</div>
+    </div>
+    <div class="field">
+      <label id="hlabel"><em>i</em> Annual holding rate</label>
+      <input type="number" id="h_inp" value="20" min="0" step="any" oninput="refreshDerived()"/>
+      <div class="unit" id="hunit">% of unit cost per year</div>
+    </div>
+    <div class="field">
+      <label><em>L</em> Lead time</label>
+      <input type="number" id="L" value="0.5" min="0.0001" step="any" oninput="refreshDerived()"/>
+      <div class="unit">years &nbsp;(0.5 = 6 mo, 0.25 = 3 mo)</div>
+    </div>
+    <div class="field">
+      <label><em>π</em> Penalty / goodwill cost</label>
+      <input type="number" id="pi" value="25" min="0" step="any"/>
+      <div class="unit">$ per unit short</div>
+    </div>
+    <div class="field">
+      <label id="mu_label"><em>μ<sub>L</sub></em> Mean lead-time demand</label>
+      <input type="number" id="mu_inp" value="100" min="0" step="any" oninput="refreshDerived()"/>
+      <div class="unit" id="mu_unit">units over lead-time period</div>
+    </div>
+    <div class="field">
+      <label id="sig_label"><em>σ<sub>L</sub></em> Std-dev over lead time</label>
+      <input type="number" id="sig_inp" value="25" min="0" step="any" oninput="refreshDerived()"/>
+      <div class="unit" id="sig_unit">units over lead-time period</div>
+    </div>
+    <div class="field">
+      <label><em>c</em> Unit purchase cost</label>
+      <input type="number" id="c_inp" value="10" min="0" step="any" oninput="refreshDerived()"/>
+      <div class="unit">$ per unit</div>
+    </div>
+  </div>
+
+  <div id="derived_box" style="margin-top:.85rem;">
+    <div class="igrid">
+      <div class="field derived" id="h_df">
+        <label>Derived <em>h</em> — holding cost/unit/yr</label>
+        <input type="text" id="h_derived" readonly tabindex="-1"/>
+        <div class="unit">= (rate / 100) × c</div>
+      </div>
+      <div class="field derived" id="mu_af">
+        <label>Derived <em>μ</em> — annual demand</label>
+        <input type="text" id="mu_ann" readonly tabindex="-1"/>
+        <div class="unit">= μ<sub>L</sub> / L</div>
+      </div>
+      <div class="field derived" id="sig_af">
+        <label>Derived <em>σ</em> — annual std-dev</label>
+        <input type="text" id="sig_ann" readonly tabindex="-1"/>
+        <div class="unit">= σ<sub>L</sub> / √L</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sbtn-wrap">
+    <button class="sbtn" onclick="runSolve()">&#9654;&nbsp;&nbsp;Solve</button>
+  </div>
+  <div id="errbox" style="display:none;" class="errbox"></div>
+
+  <!-- results: always in DOM, toggled visible -->
+  <div id="results" style="display:none;">
+
+    <div class="sh"><h2>Iterative Convergence</h2></div>
+    <div class="tscroll">
+      <table>
+        <thead><tr>
+          <th>Iter</th><th>Q</th><th>R</th><th>z</th>
+          <th>n(R)</th><th>TC ($)</th><th>|&Delta;Q|</th><th>|&Delta;R|</th>
+        </tr></thead>
+        <tbody id="iterbody"></tbody>
+      </table>
+      <div id="convbadge" class="cbadge"></div>
+    </div>
+
+    <div class="sh"><h2>Optimal Policy</h2></div>
+    <div class="cards" id="policy_cards"></div>
+
+    <div class="sh"><h2>Performance Indicators</h2></div>
+    <div class="cards" id="perf_cards"></div>
+
+    <div class="sh"><h2>Annual Cost Breakdown</h2></div>
+    <div class="cards" id="cost_cards"></div>
+
+    <div class="sh"><h2>Inventory Diagram</h2></div>
+    <div class="chart-card">
+      <h3>(Q, R) Policy — Inventory Over Time</h3>
+      <canvas id="chart"></canvas>
+    </div>
+
+  </div>
+
+</div>
+
+</div><!-- /wrap qr -->
+</div><!-- /panel-qr -->
+
+<!-- ══ SL PANEL ══ -->
+<div id="panel-foi" style="display:none;">
+<div class="wrap">
+
+  <!-- SL formula card -->
+  <div class="fcard">
+    <h3>Service Level Approach — Model Reference</h3>
+    <code>
+      <b>Q = EOQ</b> = &#8730;(2K&#956;/h) &nbsp;<i>— order quantity fixed at EOQ</i><br>
+      <b>&#956;<sub>L</sub></b> = &#956;·L &nbsp;<i>— mean demand over lead time</i><br>
+      <b>&#963;<sub>L</sub></b> = &#963;·&#8730;L &nbsp;<i>— std-dev of lead-time demand</i><br>
+      <b>R</b> = &#956;<sub>L</sub> + z·&#963;<sub>L</sub> &nbsp;<i>— reorder point</i>
+    </code>
+    <code>
+      <b>Type 1</b> (Cycle SL): &nbsp;F(R) = &#945; &nbsp;&#8658;&nbsp; z = &#934;<sup>&minus;1</sup>(&#945;)<br>
+      <b>Type 2</b> (Fill rate): &nbsp;n(R)/Q = 1&minus;&#946; &nbsp;&#8658;&nbsp; &#936;(z) = Q(1&minus;&#946;)/&#963;<sub>L</sub><br>
+      <b>Safety stock:</b> SS = z·&#963;<sub>L</sub><br>
+      <b>&#936;(z)</b> = &#966;(z) &minus; z·[1&minus;&#934;(z)] &nbsp;<i>— unit normal loss function</i>
+    </code>
+  </div>
+
+  <div class="sh"><h2>Input Parameters</h2></div>
+
+  <!-- SL holding mode -->
+  <div class="mode-lbl">Holding cost given as:</div>
+  <div class="mode-row">
+    <button class="mbtn" id="foi-hbtn-dollar" onclick="foiSetHMode('dollar')">
+      <strong>$ Dollar amount</strong><small>e.g. $2.00 per unit per year</small>
+    </button>
+    <button class="mbtn on" id="foi-hbtn-rate" onclick="foiSetHMode('rate')">
+      <strong>% Interest rate</strong><small>e.g. 20% of unit cost per year</small>
+    </button>
+  </div>
+
+  <!-- SL demand mode -->
+  <div class="mode-lbl">Demand given as:</div>
+  <div class="mode-row">
+    <button class="mbtn" id="foi-dbtn-annual" onclick="foiSetDMode('annual')">
+      <strong>Annual &#956;, &#963;</strong><small>Mean &amp; std-dev per year</small>
+    </button>
+    <button class="mbtn on" id="foi-dbtn-lt" onclick="foiSetDMode('lt')">
+      <strong>Lead-time &#956;<sub>L</sub>, &#963;<sub>L</sub></strong><small>Mean &amp; std-dev over lead-time period</small>
+    </button>
+  </div>
+
+  <!-- Service level type -->
+  <div class="mode-lbl">Service level type:</div>
+  <div class="sl-toggle">
+    <button class="sl-btn on" id="foi-sl-t1" onclick="foiSetSLType(1)">
+      <strong>Type 1 — Cycle Service Level</strong>
+      <small>F(R) = &#945; &nbsp;·&nbsp; P(no stockout per cycle) &nbsp;·&nbsp; Direct formula</small>
+    </button>
+    <button class="sl-btn" id="foi-sl-t2" onclick="foiSetSLType(2)">
+      <strong>Type 2 — Fill Rate</strong>
+      <small>n(R)/Q = 1&minus;&#946; &nbsp;·&nbsp; Proportion of demand met &nbsp;·&nbsp; Loss function</small>
+    </button>
+  </div>
+
+  <!-- SL input fields -->
+  <div class="igrid">
+    <div class="field">
+      <label><em>K</em> Setup / Order cost</label>
+      <input type="number" id="foi-K" value="50" min="0" step="any" oninput="foiRefreshDerived()"/>
+      <div class="unit">$ per order</div>
+    </div>
+    <div class="field">
+      <label id="foi-hlabel"><em>i</em> Annual holding rate</label>
+      <input type="number" id="foi-h" value="20" min="0" step="any" oninput="foiRefreshDerived()"/>
+      <div class="unit" id="foi-hunit">% of unit cost per year</div>
+    </div>
+    <div class="field">
+      <label><em>L</em> Lead time</label>
+      <input type="number" id="foi-L" value="0.5" min="0.0001" step="any" oninput="foiRefreshDerived()"/>
+      <div class="unit">years &nbsp;(0.5 = 6 mo, 0.25 = 3 mo)</div>
+    </div>
+    <div class="field">
+      <label id="foi-slabel"><em>&#945;</em> Target service level</label>
+      <input type="number" id="foi-SL" value="98" min="0.01" max="99.9999" step="any"/>
+      <div class="unit" id="foi-slunit">% &nbsp;(e.g. 98 for 98%)</div>
+    </div>
+    <div class="field">
+      <label id="foi-mulabel"><em>&#956;<sub>L</sub></em> Mean lead-time demand</label>
+      <input type="number" id="foi-mu" value="100" min="0" step="any" oninput="foiRefreshDerived()"/>
+      <div class="unit" id="foi-muunit">units over lead-time period</div>
+    </div>
+    <div class="field">
+      <label id="foi-siglabel"><em>&#963;<sub>L</sub></em> Std-dev over lead time</label>
+      <input type="number" id="foi-sig" value="25" min="0" step="any" oninput="foiRefreshDerived()"/>
+      <div class="unit" id="foi-sigunit">units over lead-time period</div>
+    </div>
+    <div class="field">
+      <label><em>c</em> Unit purchase cost</label>
+      <input type="number" id="foi-c" value="10" min="0" step="any" oninput="foiRefreshDerived()"/>
+      <div class="unit">$ per unit</div>
+    </div>
+  </div>
+
+  <!-- derived display -->
+  <div id="foi-derived-box" style="margin-top:.85rem;">
+    <div class="igrid">
+      <div class="field derived" id="foi-h-df">
+        <label>Derived <em>h</em> — holding cost/unit/yr</label>
+        <input type="text" id="foi-h-derived" readonly tabindex="-1"/>
+        <div class="unit">= (rate / 100) × c</div>
+      </div>
+      <div class="field derived" id="foi-mu-af">
+        <label>Derived <em>&#956;</em> — annual demand</label>
+        <input type="text" id="foi-mu-ann" readonly tabindex="-1"/>
+        <div class="unit">= &#956;<sub>L</sub> / L</div>
+      </div>
+      <div class="field derived" id="foi-sig-af">
+        <label>Derived <em>&#963;</em> — annual std-dev</label>
+        <input type="text" id="foi-sig-ann" readonly tabindex="-1"/>
+        <div class="unit">= &#963;<sub>L</sub> / &#8730;L</div>
+      </div>
+      <div class="field derived" id="foi-eoq-af">
+        <label>Derived <em>Q</em> — EOQ</label>
+        <input type="text" id="foi-eoq-derived" readonly tabindex="-1"/>
+        <div class="unit">= &#8730;(2K&#956;/h)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sbtn-wrap">
+    <button class="sbtn" style="background:linear-gradient(135deg,#0d4a5a,#1a7a8a);border-color:#1a7a8a;box-shadow:0 4px 20px rgba(26,122,138,.3);" onclick="foiSolve()">&#9654;&nbsp;&nbsp;Solve</button>
+  </div>
+  <div id="foi-errbox" style="display:none;" class="errbox"></div>
+
+  <!-- SL results -->
+  <div id="foi-results" style="display:none;">
+    <div class="sh"><h2>Solution Steps</h2></div>
+    <div id="foi-steps-out" class="foi-steps"></div>
+
+    <div class="sh"><h2>Optimal Parameters</h2></div>
+    <div class="cards" id="foi-policy-cards"></div>
+
+    <div class="sh"><h2>Performance &amp; Cost</h2></div>
+    <div class="cards" id="foi-perf-cards"></div>
+
+    <div class="sh"><h2>Inventory Diagram</h2></div>
+    <div class="chart-card">
+      <h3>(Q, R) Service Level Policy — Inventory Over Time</h3>
+      <canvas id="foi-chart"></canvas>
+    </div>
+  </div>
+
+</div><!-- /wrap sl -->
+</div><!-- /panel-foi -->
+
+<footer>Inventory Policy Solver &nbsp;·&nbsp; (Q,R) Reorder Point &nbsp;&amp;&nbsp; Service Level Approach &nbsp;·&nbsp; Normal demand</footer>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────
+var hMode = 'rate';
+var dMode = 'lt';
+
+function setHMode(m) {
+  hMode = m;
+  document.getElementById('hbtn-dollar').className = 'mbtn' + (m === 'dollar' ? ' on' : '');
+  document.getElementById('hbtn-rate').className   = 'mbtn' + (m === 'rate'   ? ' on' : '');
+  var lbl  = document.getElementById('hlabel');
+  var unit = document.getElementById('hunit');
+  var inp  = document.getElementById('h_inp');
+  if (m === 'rate') {
+    lbl.innerHTML    = '<em>i</em> Annual holding rate';
+    unit.textContent = '% of unit cost per year';
+    inp.value = 20;
+  } else {
+    lbl.innerHTML    = '<em>h</em> Holding cost';
+    unit.textContent = '$ per unit per year';
+    inp.value = 2;
+  }
+  refreshDerived();
+}
+
+function setDMode(m) {
+  dMode = m;
+  document.getElementById('dbtn-annual').className = 'mbtn' + (m === 'annual' ? ' on' : '');
+  document.getElementById('dbtn-lt').className     = 'mbtn' + (m === 'lt'     ? ' on' : '');
+  var ml  = document.getElementById('mu_label');
+  var sl  = document.getElementById('sig_label');
+  var mu  = document.getElementById('mu_unit');
+  var si  = document.getElementById('sig_unit');
+  var mi  = document.getElementById('mu_inp');
+  var si2 = document.getElementById('sig_inp');
+  if (m === 'lt') {
+    ml.innerHTML     = '<em>&#956;<sub>L</sub></em> Mean lead-time demand';
+    sl.innerHTML     = '<em>&#963;<sub>L</sub></em> Std-dev over lead time';
+    mu.textContent   = 'units over lead-time period';
+    si.textContent   = 'units over lead-time period';
+    mi.value = 100;  si2.value = 25;
+  } else {
+    ml.innerHTML     = '<em>&#956;</em> Mean annual demand';
+    sl.innerHTML     = '<em>&#963;</em> Annual std-dev of demand';
+    mu.textContent   = 'units / year';
+    si.textContent   = 'units / year';
+    mi.value = 200;  si2.value = 35.36;
+  }
+  refreshDerived();
+}
+
+function refreshDerived() {
+  var c   = parseFloat(document.getElementById('c_inp').value)  || 0;
+  var L   = parseFloat(document.getElementById('L').value)      || 0;
+  var hv  = parseFloat(document.getElementById('h_inp').value)  || 0;
+  var muv = parseFloat(document.getElementById('mu_inp').value) || 0;
+  var sv  = parseFloat(document.getElementById('sig_inp').value)|| 0;
+
+  var showH  = (hMode === 'rate');
+  var showLT = (dMode === 'lt');
+
+  document.getElementById('h_df').style.display  = showH  ? '' : 'none';
+  document.getElementById('mu_af').style.display = showLT ? '' : 'none';
+  document.getElementById('sig_af').style.display= showLT ? '' : 'none';
+  document.getElementById('derived_box').style.display = (showH || showLT) ? '' : 'none';
+
+  if (showH)             document.getElementById('h_derived').value = (hv / 100 * c).toFixed(4);
+  if (showLT && L > 0) {
+    document.getElementById('mu_ann').value  = (muv / L).toFixed(4);
+    document.getElementById('sig_ann').value = (sv / Math.sqrt(L)).toFixed(4);
+  }
+}
+
+refreshDerived();   // initialise derived display on page load
+
+// ─── STATISTICS ──────────────────────────────────────────────────────────
+function erf(x) {
+  var t = 1 / (1 + 0.3275911 * Math.abs(x));
+  var p = t*(0.254829592+t*(-0.284496736+t*(1.421413741+t*(-1.453152027+t*1.061405429))));
+  var r = 1 - p * Math.exp(-x * x);
+  return x < 0 ? -r : r;
+}
+var SQ2  = Math.sqrt(2);
+var SQ2P = Math.sqrt(2 * Math.PI);
+function normCDF(z) { return 0.5 * (1 + erf(z / SQ2)); }
+function normPDF(z) { return Math.exp(-0.5 * z * z) / SQ2P; }
+function normPPF(p) {
+  if (p <= 0) return -8; if (p >= 1) return 8;
+  var a=[0,-3.969683028665376e1,2.209460984245205e2,-2.759285104469687e2,
+           1.383577518672690e2,-3.066479806614716e1,2.506628277459239];
+  var b=[0,-5.447609879822406e1,1.615858368580409e2,-1.556989798598866e2,
+           6.680131188771972e1,-1.328068155288572e1];
+  var c=[-7.784894002430293e-3,-3.223964580411365e-1,-2.400758277161838,
+          -2.549732539343734,4.374664141464968,2.938163982698783];
+  var d=[7.784695709041462e-3,3.224671290700398e-1,2.445134137142996,3.754408661907416];
+  var lo=0.02425, hi=1-lo, q, r;
+  if (p < lo) {
+    q = Math.sqrt(-2*Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
+           ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+  if (p <= hi) {
+    q=p-0.5; r=q*q;
+    return (((((a[1]*r+a[2])*r+a[3])*r+a[4])*r+a[5])*r+a[6])*q /
+           (((((b[1]*r+b[2])*r+b[3])*r+b[4])*r+b[5])*r+1);
+  }
+  q = Math.sqrt(-2*Math.log(1-p));
+  return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
+           ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+function unl(z) { return normPDF(z) - z*(1 - normCDF(z)); }
+
+// ─── SOLVER ──────────────────────────────────────────────────────────────
+function solveQR(K, h, L, pi, mu, sigma, c) {
+  var mu_L    = mu * L;
+  var sigma_L = sigma * Math.sqrt(L);
+  var Q = Math.sqrt(2 * K * mu / h);
+  var rows = [];
+  for (var i = 1; i <= 100; i++) {
+    var Qp  = Q;
+    var rhs = Math.min(1-1e-9, Math.max(1e-9, 1 - (h*Q)/(pi*mu)));
+    var z   = normPPF(rhs);
+    var R   = mu_L + z * sigma_L;
+    var nR  = sigma_L * unl(z);
+    Q = Math.sqrt(2 * mu * (K + pi*nR) / h);
+    var dQ  = Math.abs(Q - Qp);
+    var dR  = rows.length > 0 ? Math.abs(R - rows[rows.length-1].R) : 0;
+    var TC  = c*mu + (K*mu)/Q + h*(Q/2+R-mu_L) + (pi*mu*nR)/Q;
+    rows.push({i:i, Q:Q, R:R, z:z, nR:nR, dQ:dQ, dR:dR, TC:TC});
+    if (dQ < 1e-6 && i > 1) break;
+  }
+  var f = rows[rows.length-1];
+  return {
+    rows: rows, Q: f.Q, R: f.R, z: f.z, nR: f.nR, TC: f.TC,
+    safety:   f.R - mu_L,
+    SL:       normCDF(f.z),
+    fill:     1 - f.nR / f.Q,
+    cycleYr:  f.Q / mu,
+    purch:    c * mu,
+    order:    K * mu / f.Q,
+    hold:     h * (f.Q/2 + f.R - mu_L),
+    shortage: pi * mu * f.nR / f.Q,
+    mu_L: mu_L, sigma_L: sigma_L, mu: mu, sigma: sigma, L: L,
+    converged: f.dQ < 1e-6
+  };
+}
+
+// ─── MAIN ────────────────────────────────────────────────────────────────
+var lastRes = null;
+
+function runSolve() {
+  var eb = document.getElementById('errbox');
+  eb.style.display = 'none';
+
+  try {
+    var K   = parseFloat(document.getElementById('K').value);
+    var hv  = parseFloat(document.getElementById('h_inp').value);
+    var L   = parseFloat(document.getElementById('L').value);
+    var pi  = parseFloat(document.getElementById('pi').value);
+    var muv = parseFloat(document.getElementById('mu_inp').value);
+    var sv  = parseFloat(document.getElementById('sig_inp').value);
+    var c   = parseFloat(document.getElementById('c_inp').value);
+
+    if ([K,hv,L,pi,muv,sv,c].some(function(v){return isNaN(v);}))
+      throw new Error('Please fill in all fields with valid numbers.');
+    if (L  <= 0) throw new Error('Lead time L must be > 0.');
+    if (K  <= 0) throw new Error('Setup cost K must be > 0.');
+    if (pi <= 0) throw new Error('Penalty cost \u03c0 must be > 0.');
+    if (muv<= 0) throw new Error('Mean demand must be > 0.');
+
+    var h = (hMode === 'rate') ? (hv / 100) * c : hv;
+    if (h <= 0) throw new Error('Holding cost h is 0 — check interest rate and unit cost.');
+
+    var mu, sigma;
+    if (dMode === 'lt') { mu = muv/L;  sigma = sv/Math.sqrt(L); }
+    else                { mu = muv;    sigma = sv; }
+
+    var res = solveQR(K, h, L, pi, mu, sigma, c);
+    lastRes = res;
+
+    buildIterTable(res);
+    buildPolicyCards(res);
+    buildPerfCards(res);
+    buildCostCards(res);
+
+    // show results panel
+    document.getElementById('results').style.display = '';
+
+    // draw chart after browser reflow (canvas needs visible dimensions)
+    setTimeout(function() { drawChartOn(res, 'chart'); }, 60);
+
+    // scroll into view
+    setTimeout(function() {
+      document.getElementById('results').scrollIntoView({behavior:'smooth', block:'start'});
+    }, 100);
+
+  } catch(e) {
+    eb.textContent = '\u2717  ' + e.message;
+    eb.style.display = '';
+  }
+}
+
+// ─── RENDERING ───────────────────────────────────────────────────────────
+function f2(n)  { return (+n).toFixed(2); }
+function f3(n)  { return (+n).toFixed(3); }
+function f4(n)  { return (+n).toFixed(4); }
+function fc(n)  { return '$' + (+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function mrow(lbl, val, cls, unit) {
+  return '<div class="mrow"><span class="mlabel">'+lbl+'</span>'
+       + '<span><span class="mval '+(cls||'')+'">'+val+'</span>'
+       + (unit ? '<span class="munit">'+unit+'</span>' : '')+'</span></div>';
+}
+function pbrow(lbl, pct, cls) {
+  return '<div class="pb"><div class="pb-hd"><span>'+lbl+'</span><span>'+(pct*100).toFixed(2)+'%</span></div>'
+       + '<div class="pb-track"><div class="pb-fill '+(cls||'a')+'" style="width:'+(pct*100).toFixed(2)+'%"></div></div></div>';
+}
+
+function buildIterTable(res) {
+  var html = '';
+  for (var k=0; k<res.rows.length; k++) {
+    var r = res.rows[k];
+    var last = (k === res.rows.length-1);
+    html += '<tr'+(last?' class="conv"':'')+'>'
+          + '<td>'+r.i+'</td>'
+          + '<td>'+f3(r.Q)+'</td>'
+          + '<td>'+f3(r.R)+'</td>'
+          + '<td>'+f4(r.z)+'</td>'
+          + '<td>'+f4(r.nR)+'</td>'
+          + '<td>'+fc(r.TC)+'</td>'
+          + '<td>'+(r.i>1 ? r.dQ.toExponential(2) : '&mdash;')+'</td>'
+          + '<td>'+(r.i>1 ? r.dR.toExponential(2) : '&mdash;')+'</td>'
+          + '</tr>';
+  }
+  document.getElementById('iterbody').innerHTML = html;
+
+  var n     = res.rows.length;
+  var badge = document.getElementById('convbadge');
+  if (res.converged) {
+    badge.style.cssText = 'background:rgba(92,184,92,.1);border:1px solid rgba(92,184,92,.3);color:#5cb85c;';
+    badge.textContent   = '\u2714  Converged after '+n+' iteration'+(n>1?'s':'')+
+                          '  |ΔQ| = '+res.rows[n-1].dQ.toExponential(2);
+  } else {
+    badge.style.cssText = 'background:rgba(240,160,48,.1);border:1px solid rgba(240,160,48,.3);color:#f0a030;';
+    badge.textContent   = '\u26a0  Max iterations reached';
+  }
+}
+
+function buildPolicyCards(res) {
+  document.getElementById('policy_cards').innerHTML =
+    '<div class="card"><h3>Decision Variables</h3>'
+    + mrow('Order quantity <em>Q*</em>',           f2(res.Q),  'a', 'units')
+    + mrow('Reorder point <em>R*</em>',             f2(res.R),  'a', 'units')
+    + mrow('Safety factor <em>z*</em>',             f4(res.z),  'c')
+    + mrow('Exp. short/cycle <em>n(R)</em>',        f4(res.nR), '',  'units')
+    + '</div>'
+    + '<div class="card"><h3>Lead-Time Demand</h3>'
+    + mrow('Mean demand <em>&#956;<sub>L</sub></em>',   f2(res.mu_L),    '', 'units')
+    + mrow('Std-dev <em>&#963;<sub>L</sub></em>',       f2(res.sigma_L), '', 'units')
+    + mrow('Annual demand <em>&#956;</em>',             f2(res.mu),      '', 'units/yr')
+    + mrow('Annual std-dev <em>&#963;</em>',            f2(res.sigma),   '', 'units/yr')
+    + '</div>';
+}
+
+function buildPerfCards(res) {
+  var cy    = res.cycleYr;
+  var cyStr = cy >= 1   ? f3(cy)+' yr  ('+f2(cy*12)+' mo)'
+            : cy*12 >=1 ? f2(cy*12)+' months'
+            :              f2(cy*52)+' weeks';
+  var unmet = res.nR / res.Q;
+
+  document.getElementById('perf_cards').innerHTML =
+    '<div class="card"><h3>Stock &amp; Replenishment</h3>'
+    + mrow('Safety stock <em>R* &minus; &#956;<sub>L</sub></em>', f2(res.safety), 'g', 'units')
+    + '<div class="dnote">= '+f2(res.R)+' &minus; '+f2(res.mu_L)+' = '+f2(res.safety)+'</div>'
+    + '<br>'
+    + mrow('Avg time between orders <em>Q*/&#956;</em>', cyStr)
+    + '<div class="dnote">= '+f2(res.Q)+' / '+f2(res.mu)+' = '+f4(res.cycleYr)+' yr</div>'
+    + '</div>'
+    + '<div class="card"><h3>Service Metrics</h3>'
+    + mrow('Cycles with no stockout <em>&Phi;(z*)</em>', f2(res.SL*100)+'%', 'c')
+    + pbrow('Cycle service level', res.SL, 'a')
+    + '<br>'
+    + mrow('Demand <strong>not</strong> met <em>n(R)/Q*</em>', (unmet*100).toFixed(4)+'%', 'r')
+    + mrow('Demand fill rate <em>1&minus;n(R)/Q*</em>',       (res.fill*100).toFixed(4)+'%', 'g')
+    + pbrow('Fill rate', res.fill, 'g')
+    + '<div class="dnote">= '+f4(res.nR)+' / '+f2(res.Q)+' = '+(unmet*100).toFixed(4)+'% unmet</div>'
+    + '</div>';
+}
+
+function buildCostCards(res) {
+  var TC = res.TC;
+  var parts = [
+    ['Purchase',  'c &middot; &#956;',           res.purch],
+    ['Ordering',  '(K &middot; &#956;) / Q',     res.order],
+    ['Holding',   'h &middot; (Q/2 + SS)',        res.hold],
+    ['Shortage',  '&#960; &middot; &#956; &middot; n(R) / Q', res.shortage],
+  ];
+  var html = '<div class="card" style="grid-column:1/-1"><h3>Annual Cost Components</h3>';
+  for (var i=0; i<parts.length; i++) {
+    var p = parts[i], pct = p[2]/TC;
+    html += '<div class="crow">'
+          + '<div class="cname">'+p[0]+'<span class="cformula">'+p[1]+'</span></div>'
+          + '<div class="camt">'+fc(p[2])+'</div>'
+          + '<div class="cpct">'+(pct*100).toFixed(1)+'%</div>'
+          + '<div class="cbar pb-track" style="height:4px">'
+          + '<div class="pb-fill a" style="width:'+(pct*100).toFixed(1)+'%"></div></div>'
+          + '</div>';
+  }
+  html += '<div class="ctotal"><span class="ctotal-lbl">Total Annual Cost TC*</span>'
+        + '<span class="ctotal-amt">'+fc(TC)+'</span></div></div>';
+  document.getElementById('cost_cards').innerHTML = html;
+}
+
+
+var _rt;
+window.addEventListener('resize', function(){
+  clearTimeout(_rt);
+  _rt = setTimeout(function(){
+    if (lastRes    && document.getElementById('results').style.display     !== 'none') drawChartOn(lastRes,    'chart');
+    if (foiLastRes && document.getElementById('foi-results').style.display !== 'none') drawChartOn(foiLastRes._fake || foiLastRes, 'foi-chart');
+  }, 200);
+});
+
+// ─── TAB SWITCHING ────────────────────────────────────────────────────────
+function switchTab(t) {
+  document.getElementById('panel-qr').style.display  = t === 'qr'  ? '' : 'none';
+  document.getElementById('panel-foi').style.display = t === 'foi' ? '' : 'none';
+  document.getElementById('tab-qr').className  = 'tab' + (t === 'qr'  ? ' active' : '');
+  document.getElementById('tab-foi').className = 'tab' + (t === 'foi' ? ' active' : '');
+}
+
+// ─── SL STATE ─────────────────────────────────────────────────────────────
+var foiHMode   = 'rate';
+var foiDMode   = 'lt';
+var foiSLType  = 1;
+var foiLastRes = null;
+
+function foiSetHMode(m) {
+  foiHMode = m;
+  document.getElementById('foi-hbtn-dollar').className = 'mbtn' + (m === 'dollar' ? ' on' : '');
+  document.getElementById('foi-hbtn-rate').className   = 'mbtn' + (m === 'rate'   ? ' on' : '');
+  var lbl  = document.getElementById('foi-hlabel');
+  var unit = document.getElementById('foi-hunit');
+  var inp  = document.getElementById('foi-h');
+  if (m === 'rate') {
+    lbl.innerHTML    = '<em>i</em> Annual holding rate';
+    unit.textContent = '% of unit cost per year';
+    inp.value = 20;
+  } else {
+    lbl.innerHTML    = '<em>h</em> Holding cost';
+    unit.textContent = '$ per unit per year';
+    inp.value = 2;
+  }
+  foiRefreshDerived();
+}
+
+function foiSetDMode(m) {
+  foiDMode = m;
+  document.getElementById('foi-dbtn-annual').className = 'mbtn' + (m === 'annual' ? ' on' : '');
+  document.getElementById('foi-dbtn-lt').className     = 'mbtn' + (m === 'lt'     ? ' on' : '');
+  var ml  = document.getElementById('foi-mulabel');
+  var sl  = document.getElementById('foi-siglabel');
+  var mu  = document.getElementById('foi-muunit');
+  var si  = document.getElementById('foi-sigunit');
+  var mi  = document.getElementById('foi-mu');
+  var si2 = document.getElementById('foi-sig');
+  if (m === 'lt') {
+    ml.innerHTML   = '<em>&#956;<sub>L</sub></em> Mean lead-time demand';
+    sl.innerHTML   = '<em>&#963;<sub>L</sub></em> Std-dev over lead time';
+    mu.textContent = 'units over lead-time period';
+    si.textContent = 'units over lead-time period';
+    mi.value = 100; si2.value = 25;
+  } else {
+    ml.innerHTML   = '<em>&#956;</em> Mean annual demand';
+    sl.innerHTML   = '<em>&#963;</em> Annual std-dev of demand';
+    mu.textContent = 'units / year';
+    si.textContent = 'units / year';
+    mi.value = 200; si2.value = 35.36;
+  }
+  foiRefreshDerived();
+}
+
+function foiSetSLType(t) {
+  foiSLType = t;
+  document.getElementById('foi-sl-t1').className = 'sl-btn' + (t === 1 ? ' on' : '');
+  document.getElementById('foi-sl-t2').className = 'sl-btn' + (t === 2 ? ' on' : '');
+  var lbl  = document.getElementById('foi-slabel');
+  var unit = document.getElementById('foi-slunit');
+  if (t === 1) {
+    lbl.innerHTML    = '<em>&#945;</em> Target cycle service level';
+    unit.textContent = '% — F(R) = \u03b1, e.g. 98';
+  } else {
+    lbl.innerHTML    = '<em>&#946;</em> Target fill rate';
+    unit.textContent = '% — proportion of demand met, e.g. 98';
+  }
+}
+
+function foiRefreshDerived() {
+  var c   = parseFloat(document.getElementById('foi-c').value)   || 0;
+  var L   = parseFloat(document.getElementById('foi-L').value)   || 0;
+  var K   = parseFloat(document.getElementById('foi-K').value)   || 0;
+  var hv  = parseFloat(document.getElementById('foi-h').value)   || 0;
+  var muv = parseFloat(document.getElementById('foi-mu').value)  || 0;
+  var sv  = parseFloat(document.getElementById('foi-sig').value) || 0;
+
+  var showH  = (foiHMode === 'rate');
+  var showLT = (foiDMode === 'lt');
+
+  document.getElementById('foi-h-df').style.display   = showH  ? '' : 'none';
+  document.getElementById('foi-mu-af').style.display  = showLT ? '' : 'none';
+  document.getElementById('foi-sig-af').style.display = showLT ? '' : 'none';
+  document.getElementById('foi-derived-box').style.display = 'block';
+
+  var h_val  = showH ? (hv / 100 * c) : hv;
+  var mu_val = showLT && L > 0 ? muv / L    : muv;
+
+  if (showH) document.getElementById('foi-h-derived').value = h_val.toFixed(4);
+  if (showLT && L > 0) {
+    document.getElementById('foi-mu-ann').value  = mu_val.toFixed(4);
+    document.getElementById('foi-sig-ann').value = (sv / Math.sqrt(L)).toFixed(4);
+  }
+  // always show EOQ
+  if (h_val > 0 && mu_val > 0 && K > 0) {
+    document.getElementById('foi-eoq-derived').value = Math.sqrt(2*K*mu_val/h_val).toFixed(2);
+  }
+}
+
+foiRefreshDerived();
+
+// ─── SL SOLVER ────────────────────────────────────────────────────────────
+function solveSL(K, h, L, alpha, slType, mu, sigma, c) {
+  var mu_L    = mu * L;
+  var sigma_L = sigma * Math.sqrt(L);
+  var Q_eoq   = Math.sqrt(2 * K * mu / h);   // EOQ — Q is fixed here
+
+  var z, R, SS, nR;
+
+  if (slType === 1) {
+    // ── Type 1: F(R) = α  →  z = Φ⁻¹(α), direct ──────────────────
+    z  = normPPF(alpha / 100);
+    R  = mu_L + z * sigma_L;
+    SS = z * sigma_L;
+    nR = sigma_L * unl(z);
+  } else {
+    // ── Type 2: n(R)/Q = 1−β  →  Ψ(z) = Q(1−β)/σ_L ───────────────
+    // Q here is EOQ
+    var target_psi = Q_eoq * (1 - alpha / 100) / sigma_L;
+    // binary search on z (Ψ is decreasing in z)
+    var zlo = -4, zhi = 8;
+    for (var i = 0; i < 80; i++) {
+      var zm = (zlo + zhi) / 2;
+      if (unl(zm) > target_psi) zlo = zm; else zhi = zm;
+    }
+    z  = (zlo + zhi) / 2;
+    R  = mu_L + z * sigma_L;
+    SS = z * sigma_L;
+    nR = sigma_L * unl(z);
+  }
+
+  var SL_actual   = normCDF(z) * 100;
+  var fillRate    = 1 - nR / Q_eoq;
+
+  // costs (annual)
+  var purch   = c * mu;
+  var order   = K * mu / Q_eoq;
+  var hold    = h * (Q_eoq / 2 + SS);
+  var TC      = purch + order + hold;   // no explicit shortage cost in SL approach
+
+  return {
+    Q: Q_eoq, R: R, z: z, SS: SS, nR: nR,
+    SL_actual: SL_actual, fillRate: fillRate,
+    mu_L: mu_L, sigma_L: sigma_L, mu: mu, sigma: sigma, L: L,
+    purch: purch, order: order, hold: hold, TC: TC,
+    slType: slType, alpha: alpha
+  };
+}
+
+// ─── SL MAIN ──────────────────────────────────────────────────────────────
+function foiSolve() {
+  var eb = document.getElementById('foi-errbox');
+  eb.style.display = 'none';
+
+  try {
+    var K   = parseFloat(document.getElementById('foi-K').value);
+    var hv  = parseFloat(document.getElementById('foi-h').value);
+    var L   = parseFloat(document.getElementById('foi-L').value);
+    var SLv = parseFloat(document.getElementById('foi-SL').value);
+    var muv = parseFloat(document.getElementById('foi-mu').value);
+    var sv  = parseFloat(document.getElementById('foi-sig').value);
+    var c   = parseFloat(document.getElementById('foi-c').value);
+
+    if ([K,hv,L,SLv,muv,sv,c].some(function(v){return isNaN(v);}))
+      throw new Error('Please fill in all fields with valid numbers.');
+    if (L  <= 0) throw new Error('Lead time L must be > 0.');
+    if (K  <= 0) throw new Error('Setup cost K must be > 0.');
+    if (SLv <= 0 || SLv >= 100) throw new Error('Service level must be between 0 and 100 (exclusive).');
+
+    var h = (foiHMode === 'rate') ? (hv / 100) * c : hv;
+    if (h <= 0) throw new Error('Holding cost h is 0 \u2014 check interest rate and unit cost.');
+
+    var mu, sigma;
+    if (foiDMode === 'lt') { mu = muv / L; sigma = sv / Math.sqrt(L); }
+    else                   { mu = muv;     sigma = sv; }
+    if (mu <= 0) throw new Error('Mean demand must be > 0.');
+
+    var res = solveSL(K, h, L, SLv, foiSLType, mu, sigma, c);
+    foiLastRes = res;
+
+    foiBuildSteps(res);
+    foiBuildPolicyCards(res);
+    foiBuildPerfCards(res);
+
+    document.getElementById('foi-results').style.display = '';
+    setTimeout(function(){ foiDrawChart(res); }, 60);
+    setTimeout(function(){
+      document.getElementById('foi-results').scrollIntoView({behavior:'smooth', block:'start'});
+    }, 100);
+
+  } catch(e) {
+    eb.textContent = '\u2717  ' + e.message;
+    eb.style.display = '';
+  }
+}
+
+// ─── SL RENDERING ─────────────────────────────────────────────────────────
+function foiBuildSteps(res) {
+  var html = '';
+  var t1 = (res.slType === 1);
+
+  // Step 1 — EOQ
+  html += '<div class="result-step">'
+        + '<b>Step 1 — Order Quantity (EOQ)</b><br>'
+        + 'Q = &#8730;(2K&#956;/h) = &#8730;(2 &times; '+f2(res.Q*res.Q/2/res.mu*res.mu/(res.Q*res.Q/2/(res.mu))+'... ')
+        + '</div>';
+
+  // recompute K from Q (Q=sqrt(2Kmu/h) => K=Q²h/(2mu))
+  var Kback = res.Q*res.Q * (res.hold/(res.Q/2+res.SS) - res.hold*res.SS/(res.Q/2+res.SS)/1) / (2*res.mu);
+  // just show the value cleanly
+  html = '';
+  html += '<div class="result-step">'
+        + '<b>Step 1 — Order Quantity (EOQ)</b><br>'
+        + 'Q = &#8730;(2K&#956;/h)'
+        + ' = <span class="big" style="color:var(--amber)">' + f2(res.Q) + '</span> units<br>'
+        + '<span class="lbl">This is fixed regardless of service level</span>'
+        + '</div>';
+
+  // Step 2 — σ_L
+  html += '<div class="result-step">'
+        + '<b>Step 2 — Lead-Time Demand Parameters</b><br>'
+        + '&#956;<sub>L</sub> = &#956; &times; L = '+f2(res.mu)+' &times; '+f2(res.L)+' = <span class="big">'+f2(res.mu_L)+'</span> units<br>'
+        + '&#963;<sub>L</sub> = &#963; &times; &#8730;L = '+f2(res.sigma)+' &times; &#8730;'+f2(res.L)+' = <span class="big">'+f2(res.sigma_L)+'</span> units'
+        + '</div>';
+
+  if (t1) {
+    // Type 1
+    html += '<div class="result-step">'
+          + '<b>Step 3 — Safety Factor z &nbsp;(Type 1)</b><br>'
+          + 'F(R) = &#945; &nbsp;&#8658;&nbsp; z = &#934;<sup>&minus;1</sup>('+f2(res.alpha)+'%) = <span class="big">'+f4(res.z)+'</span><br>'
+          + '<span class="lbl">Directly from the inverse normal CDF</span>'
+          + '</div>';
+  } else {
+    // Type 2
+    var psi_target = res.nR / res.sigma_L;
+    html += '<div class="result-step">'
+          + '<b>Step 3 — Safety Factor z &nbsp;(Type 2)</b><br>'
+          + 'n(R) = Q &times; (1&minus;&#946;) = '+f2(res.Q)+' &times; (1&minus;'+f2(res.alpha/100)+') = '+f4(res.Q*(1-res.alpha/100))+'<br>'
+          + '&#936;(z) = n(R) / &#963;<sub>L</sub> = '+f4(res.Q*(1-res.alpha/100))+' / '+f2(res.sigma_L)+' = <span class="big">'+f4(psi_target)+'</span><br>'
+          + 'Solve &#936;(z) = '+f4(psi_target)+' &nbsp;&#8658;&nbsp; z = <span class="big">'+f4(res.z)+'</span><br>'
+          + '<span class="lbl">&#936;(z) = &#966;(z) &minus; z&middot;[1&minus;&#934;(z)] — unit normal loss function</span>'
+          + '</div>';
+  }
+
+  // Step 4 — R
+  html += '<div class="result-step">'
+        + '<b>Step 4 — Reorder Point R</b><br>'
+        + 'R = &#956;<sub>L</sub> + z &times; &#963;<sub>L</sub><br>'
+        + 'R = '+f2(res.mu_L)+' + '+f4(res.z)+' &times; '+f2(res.sigma_L)
+        + ' = <span class="big" style="color:var(--amber)">'+f2(res.R)+'</span> jars<br>'
+        + 'Safety stock SS = z &times; &#963;<sub>L</sub> = <span class="big" style="color:var(--green)">'+f2(res.SS)+'</span> units'
+        + '</div>';
+
+  document.getElementById('foi-steps-out').innerHTML = html;
+}
+
+function foiBuildPolicyCards(res) {
+  document.getElementById('foi-policy-cards').innerHTML =
+    '<div class="card"><h3>Optimal (Q, R) Parameters</h3>'
+    + mrow('Order quantity <em>Q = EOQ</em>',     f2(res.Q),  'a', 'units')
+    + mrow('Reorder point <em>R*</em>',           f2(res.R),  'a', 'units')
+    + mrow('Safety stock <em>z&middot;&#963;<sub>L</sub></em>', f2(res.SS), 'g', 'units')
+    + mrow('Safety factor <em>z*</em>',           f4(res.z),  'c')
+    + mrow('Exp. short/cycle <em>n(R)</em>',      f4(res.nR), '', 'units')
+    + '</div>'
+    + '<div class="card"><h3>Lead-Time Demand</h3>'
+    + mrow('Mean demand <em>&#956;<sub>L</sub></em>',   f2(res.mu_L),    '', 'units')
+    + mrow('Std-dev <em>&#963;<sub>L</sub></em>',       f2(res.sigma_L), '', 'units')
+    + mrow('Annual demand <em>&#956;</em>',             f2(res.mu),      '', 'units/yr')
+    + mrow('Annual std-dev <em>&#963;</em>',            f2(res.sigma),   '', 'units/yr')
+    + '</div>';
+}
+
+function foiBuildPerfCards(res) {
+  var unmet = res.nR / res.Q;
+  var TC    = res.TC;
+  var parts = [
+    ['Purchase',  'c &middot; &#956;',      res.purch],
+    ['Ordering',  '(K &middot; &#956;)/Q',  res.order],
+    ['Holding',   'h&middot;(Q/2 + SS)',    res.hold],
+  ];
+
+  var costHtml = '<div class="card"><h3>Annual Costs</h3>';
+  for (var i=0; i<parts.length; i++) {
+    var p=parts[i], pct=p[2]/TC;
+    costHtml += '<div class="crow">'
+              + '<div class="cname">'+p[0]+'<span class="cformula">'+p[1]+'</span></div>'
+              + '<div class="camt">'+fc(p[2])+'</div>'
+              + '<div class="cpct">'+(pct*100).toFixed(1)+'%</div>'
+              + '<div class="cbar pb-track" style="height:4px">'
+              + '<div class="pb-fill a" style="width:'+(pct*100).toFixed(1)+'%"></div></div>'
+              + '</div>';
+  }
+  costHtml += '<div class="ctotal"><span class="ctotal-lbl">Total (excl. shortage)</span>'
+            + '<span class="ctotal-amt">'+fc(TC)+'</span></div></div>';
+
+  var perfHtml =
+    '<div class="card"><h3>Service Metrics</h3>'
+    + mrow('Cycle service level <em>&#934;(z*)</em>', f2(res.SL_actual)+'%', 'c')
+    + pbrow('Cycle service level', res.SL_actual/100, 'a')
+    + '<br>'
+    + mrow('Demand <strong>not</strong> met <em>n(R)/Q</em>', (unmet*100).toFixed(4)+'%', 'r')
+    + mrow('Demand fill rate <em>1&minus;n(R)/Q</em>',       (res.fillRate*100).toFixed(4)+'%', 'g')
+    + pbrow('Fill rate', res.fillRate, 'g')
+    + '<div class="dnote">n(R)/Q = '+f4(res.nR)+'/'+f2(res.Q)+' = '+(unmet*100).toFixed(4)+'%</div>'
+    + '</div>';
+
+  document.getElementById('foi-perf-cards').innerHTML = perfHtml + costHtml;
+}
+
+// ─── SL CHART (reuses QR chart engine) ────────────────────────────────────
+function foiDrawChart(res) {
+  // Build a fake QR-style res object and call drawChart
+  var fakeRes = {
+    Q: res.Q, R: res.R, z: res.z, nR: res.nR,
+    safety: res.SS,
+    SL: res.SL_actual / 100,
+    fill: res.fillRate,
+    cycleYr: res.Q / res.mu,
+    mu_L: res.mu_L, sigma_L: res.sigma_L,
+    mu: res.mu, sigma: res.sigma, L: res.L,
+    rows: [], converged: true,
+    purch: res.purch, order: res.order, hold: res.hold, shortage: 0, TC: res.TC,
+    // override canvas ID
+    _canvasId: 'foi-chart'
+  };
+  drawChartOn(fakeRes, 'foi-chart');
+}
+
+// Generalised chart renderer — extracted so both tabs can use it
+function drawChartOn(res, canvasId) {
+  var canvas = document.getElementById(canvasId);
+  var dpr = window.devicePixelRatio || 1;
+  var W   = canvas.offsetWidth;
+  if (!W || W < 20) W = 800;
+  var H   = Math.round(W * 0.43);
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.height = H + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  var Q=res.Q, R=res.R, ss=res.safety, mu_L=res.mu_L, sL=res.sigma_L, mu=res.mu, L=res.L;
+  var Tcyc = Q / mu;
+
+  var ml=62, mr=30, mt=38, mb=56;
+  var pw=W-ml-mr, ph=H-mt-mb;
+  var yMax=R+Q*1.12, yMin=-ss*0.38, yRng=yMax-yMin, totT=Tcyc*2.25;
+
+  function px(t)  { return ml + (t/totT)*pw; }
+  function py(iv) { return mt + ph - ((iv-yMin)/yRng)*ph; }
+
+  ctx.fillStyle='#141518'; ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle='#1e2023'; ctx.lineWidth=0.7;
+  [0,ss,R].forEach(function(yv){
+    ctx.beginPath(); ctx.moveTo(ml,py(yv)); ctx.lineTo(ml+pw,py(yv)); ctx.stroke();
+  });
+
+  ctx.fillStyle='rgba(28,55,28,0.55)';
+  ctx.fillRect(ml, py(ss), pw, py(0)-py(ss));
+
+  function srand(seed) {
+    var s=seed;
+    return function(){ s=(s*1664525+1013904223)&0x7fffffff; return s/0x7fffffff-0.5; };
+  }
+  function sc(t,d){ var u=t/d; return 3*u*u-2*u*u*u; }
+  var r1=srand(42), r2=srand(99);
+  var N1=220, dur1=Tcyc*1.01;
+  var pts1=[];
+  for(var i=0;i<=N1;i++){
+    var t=(i/N1)*dur1;
+    pts1.push([t, (R+Q)-((R+Q)-ss)*sc(t,dur1)+r1()*sL*0.08*Math.sin(i*0.28)]);
+  }
+  var t_ord=dur1*0.42;
+  for(var i=0;i<pts1.length-1;i++){
+    if(pts1[i][1]>=R && pts1[i+1][1]<R){
+      var fr=(R-pts1[i][1])/(pts1[i+1][1]-pts1[i][1]);
+      t_ord=pts1[i][0]+fr*(pts1[i+1][0]-pts1[i][0]); break;
+    }
+  }
+  var t_arr=t_ord+L;
+  var y_arr=pts1[pts1.length-1][1];
+  for(var i=0;i<pts1.length-1;i++){
+    if(pts1[i][0]<=t_arr && pts1[i+1][0]>=t_arr){
+      var fr=(t_arr-pts1[i][0])/(pts1[i+1][0]-pts1[i][0]);
+      y_arr=pts1[i][1]+fr*(pts1[i+1][1]-pts1[i][1]); break;
+    }
+  }
+  var N2=200, dur2=Tcyc*1.06, y2s=y_arr+Q;
+  var pts2=[];
+  for(var i=0;i<=N2;i++){
+    var t=t_arr+(i/N2)*dur2;
+    pts2.push([t, y2s-(y2s-ss)*sc(t-t_arr,dur2)+r2()*sL*0.07*Math.sin(i*0.22)]);
+  }
+  ctx.strokeStyle='rgba(196,90,122,0.28)'; ctx.lineWidth=1.5; ctx.setLineDash([4,6]);
+  ctx.beginPath();
+  pts2.forEach(function(p,i){ i?ctx.lineTo(px(p[0]),py(p[1])):ctx.moveTo(px(p[0]),py(p[1])); });
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle='#9b2335'; ctx.lineWidth=2.8;
+  ctx.beginPath();
+  pts1.forEach(function(p,i){ i?ctx.lineTo(px(p[0]),py(p[1])):ctx.moveTo(px(p[0]),py(p[1])); });
+  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px(t_arr),py(y_arr)); ctx.lineTo(px(t_arr),py(y_arr+Q)); ctx.stroke();
+  ctx.beginPath();
+  pts2.forEach(function(p,i){ i?ctx.lineTo(px(p[0]),py(p[1])):ctx.moveTo(px(p[0]),py(p[1])); });
+  ctx.stroke();
+  ctx.strokeStyle='#f0a030'; ctx.lineWidth=1.2; ctx.setLineDash([6,5]);
+  ctx.beginPath(); ctx.moveTo(ml,py(R)); ctx.lineTo(ml+pw,py(R)); ctx.stroke();
+  ctx.strokeStyle='#5cb85c'; ctx.lineWidth=0.9; ctx.setLineDash([3,7]);
+  ctx.beginPath(); ctx.moveTo(ml,py(ss)); ctx.lineTo(ml+pw,py(ss)); ctx.stroke();
+  ctx.setLineDash([]);
+  [t_ord,t_arr].forEach(function(t){
+    ctx.strokeStyle='rgba(240,160,48,0.35)'; ctx.lineWidth=1; ctx.setLineDash([4,5]);
+    ctx.beginPath(); ctx.moveTo(px(t),mt); ctx.lineTo(px(t),mt+ph); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  var ytau=py(ss*0.52);
+  ctx.strokeStyle='#f0a030'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(px(t_ord)+3,ytau); ctx.lineTo(px(t_arr)-3,ytau); ctx.stroke();
+  [[px(t_ord),1],[px(t_arr),-1]].forEach(function(a){
+    ctx.beginPath(); ctx.moveTo(a[0]+a[1]*8,ytau-4); ctx.lineTo(a[0],ytau); ctx.lineTo(a[0]+a[1]*8,ytau+4); ctx.stroke();
+  });
+  ctx.fillStyle='#f0a030'; ctx.font='italic 600 12px serif'; ctx.textAlign='center';
+  ctx.fillText('\u03c4  (lead time)', px((t_ord+t_arr)/2), ytau-9);
+  var xq=px(t_arr)+26, yqb=py(y_arr+Q*0.06), yqt=py(y_arr+Q*0.94);
+  ctx.strokeStyle='#f5c842'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(xq,yqt); ctx.lineTo(xq,yqb); ctx.stroke();
+  [[yqt,-1],[yqb,1]].forEach(function(a){
+    ctx.beginPath(); ctx.moveTo(xq-4,a[0]+a[1]*7); ctx.lineTo(xq,a[0]); ctx.lineTo(xq+4,a[0]+a[1]*7); ctx.stroke();
+  });
+  ctx.fillStyle='#f5c842'; ctx.font='italic bold 14px serif'; ctx.textAlign='left';
+  ctx.fillText('Q',xq+7,(yqt+yqb)/2+5);
+  ctx.font='9.5px sans-serif'; ctx.fillStyle='#606878';
+  ctx.fillText('Order qty',xq+7,(yqt+yqb)/2+18);
+  ctx.fillStyle='#f0a030'; ctx.font='italic bold 14px serif'; ctx.textAlign='right';
+  ctx.fillText('R',ml-7,py(R)+5);
+  ctx.font='9px sans-serif'; ctx.fillStyle='#606878';
+  ctx.fillText('Reorder point',ml-4,py(R)+17);
+  ctx.fillStyle='#5cb85c'; ctx.font='italic bold 13px serif'; ctx.textAlign='right';
+  ctx.fillText('s',ml-7,py(ss)+5);
+  ctx.fillStyle='#606878'; ctx.font='9.5px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('Order placed',  px(t_ord),  mt+ph+20);
+  ctx.fillText('Order arrives', px(t_arr),  mt+ph+20);
+  ctx.strokeStyle='#383c42'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(ml,mt); ctx.lineTo(ml,mt+ph); ctx.lineTo(ml+pw,mt+ph); ctx.stroke();
+  ctx.fillStyle='#606878'; ctx.font='11px sans-serif';
+  ctx.textAlign='center'; ctx.fillText('Time',ml+pw/2,H-10);
+  ctx.save(); ctx.translate(14,mt+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('Inventory',0,0); ctx.restore();
+  ctx.fillStyle='rgba(14,15,17,0.82)'; ctx.fillRect(ml+2,mt+2,pw-4,21);
+  ctx.fillStyle='#606878'; ctx.font='9px monospace'; ctx.textAlign='center';
+  ctx.fillText('Q* = '+f2(Q)+'   R* = '+f2(R)+'   Safety stock = '+f2(ss)+'   Lead time = '+f2(L*12)+' months',
+    ml+pw/2, mt+15);
+}
+
+var foiHMode  = 'rate';
+var foiDMode  = 'lt';
+var foiSLType = 1;       // 1 = Type 1 (cycle SL), 2 = Type 2 (fill rate)
+var foiLastRes = null;
+
+function foiSetHMode(m) {
+  foiHMode = m;
+  document.getElementById('foi-hbtn-dollar').className = 'mbtn' + (m === 'dollar' ? ' on' : '');
+  document.getElementById('foi-hbtn-rate').className   = 'mbtn' + (m === 'rate'   ? ' on' : '');
+  var lbl  = document.getElementById('foi-hlabel');
+  var unit = document.getElementById('foi-hunit');
+  var inp  = document.getElementById('foi-h');
+  if (m === 'rate') {
+    lbl.innerHTML    = '<em>i</em> Annual holding rate';
+    unit.textContent = '% of unit cost per year';
+    inp.value = 20;
+  } else {
+    lbl.innerHTML    = '<em>h</em> Holding cost';
+    unit.textContent = '$ per unit per year';
+    inp.value = 2;
+  }
+  foiRefreshDerived();
+}
+
+function foiSetDMode(m) {
+  foiDMode = m;
+  document.getElementById('foi-dbtn-annual').className = 'mbtn' + (m === 'annual' ? ' on' : '');
+  document.getElementById('foi-dbtn-lt').className     = 'mbtn' + (m === 'lt'     ? ' on' : '');
+  var ml  = document.getElementById('foi-mulabel');
+  var sl  = document.getElementById('foi-siglabel');
+  var mu  = document.getElementById('foi-muunit');
+  var si  = document.getElementById('foi-sigunit');
+  var mi  = document.getElementById('foi-mu');
+  var si2 = document.getElementById('foi-sig');
+  if (m === 'lt') {
+    ml.innerHTML   = '<em>&#956;<sub>L</sub></em> Mean lead-time demand';
+    sl.innerHTML   = '<em>&#963;<sub>L</sub></em> Std-dev over lead time';
+    mu.textContent = 'units over lead-time period';
+    si.textContent = 'units over lead-time period';
+    mi.value = 100; si2.value = 25;
+  } else {
+    ml.innerHTML   = '<em>&#956;</em> Mean annual demand';
+    sl.innerHTML   = '<em>&#963;</em> Annual std-dev of demand';
+    mu.textContent = 'units / year';
+    si.textContent = 'units / year';
+    mi.value = 200; si2.value = 35.36;
+  }
+  foiRefreshDerived();
+}
+
+function foiSetSLType(t) {
+  foiSLType = t;
+  document.getElementById('foi-sl-t1').className = 'sl-btn' + (t === 1 ? ' on' : '');
+  document.getElementById('foi-sl-t2').className = 'sl-btn' + (t === 2 ? ' on' : '');
+  var lbl  = document.getElementById('foi-slabel');
+  var unit = document.getElementById('foi-slunit');
+  if (t === 1) {
+    lbl.innerHTML    = '<em>SL</em> Target cycle service level';
+    unit.textContent = '% — P(no stockout per cycle), e.g. 95';
+  } else {
+    lbl.innerHTML    = '<em>FR</em> Target fill rate';
+    unit.textContent = '% — fraction of demand met, e.g. 99';
+  }
+}
+
+function foiRefreshDerived() {
+  var c   = parseFloat(document.getElementById('foi-c').value)   || 0;
+  var L   = parseFloat(document.getElementById('foi-L').value)   || 0;
+  var hv  = parseFloat(document.getElementById('foi-h').value)   || 0;
+  var muv = parseFloat(document.getElementById('foi-mu').value)  || 0;
+  var sv  = parseFloat(document.getElementById('foi-sig').value) || 0;
+
+  var showH  = (foiHMode === 'rate');
+  var showLT = (foiDMode === 'lt');
+
+  document.getElementById('foi-h-df').style.display   = showH  ? '' : 'none';
+  document.getElementById('foi-mu-af').style.display  = showLT ? '' : 'none';
+  document.getElementById('foi-sig-af').style.display = showLT ? '' : 'none';
+  document.getElementById('foi-derived-box').style.display = (showH || showLT) ? '' : 'none';
+
+  if (showH) document.getElementById('foi-h-derived').value = (hv / 100 * c).toFixed(4);
+  if (showLT && L > 0) {
+    document.getElementById('foi-mu-ann').value  = (muv / L).toFixed(4);
+    document.getElementById('foi-sig-ann').value = (sv / Math.sqrt(L)).toFixed(4);
+  }
+}
+
+foiRefreshDerived();   // init on load
+
+</script>
+</body>
+</html>
